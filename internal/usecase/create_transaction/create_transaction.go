@@ -3,6 +3,7 @@ package createtransaction
 import (
 	"github.com/mrpsousa/internal/entity"
 	"github.com/mrpsousa/internal/gateway"
+	"github.com/mrpsousa/pkg/events"
 )
 
 type CreateTransactionInputDTO struct {
@@ -18,12 +19,20 @@ type CreateTransactionOutputDTO struct {
 type CreateTransactionUseCase struct {
 	TransactionGateway gateway.TransactionGateway
 	AccountGateway     gateway.AccountGateway
+	EventDispatcher    events.EventDispatcher
+	TransactionCreated events.EventInterface
 }
 
-func NewCreateTransactionUseCase(transactionGateway gateway.TransactionGateway, accountGateway gateway.AccountGateway) *CreateTransactionUseCase {
+func NewCreateTransactionUseCase(
+	transactionGateway gateway.TransactionGateway,
+	accountGateway gateway.AccountGateway,
+	eventDispatcher events.EventDispatcher,
+	transactionCreated events.EventInterface) *CreateTransactionUseCase {
 	return &CreateTransactionUseCase{
 		TransactionGateway: transactionGateway,
 		AccountGateway:     accountGateway,
+		EventDispatcher:    eventDispatcher,
+		TransactionCreated: transactionCreated,
 	}
 
 }
@@ -48,5 +57,13 @@ func (uc *CreateTransactionUseCase) Execute(input *CreateTransactionInputDTO) (*
 	if err != nil {
 		return nil, err
 	}
-	return &CreateTransactionOutputDTO{ID: transction.ID}, nil
+
+	output := &CreateTransactionOutputDTO{
+		ID: transction.ID,
+	}
+
+	uc.TransactionCreated.SetPayload(output)
+	uc.EventDispatcher.Dispatch(uc.TransactionCreated)
+
+	return output, nil
 }
